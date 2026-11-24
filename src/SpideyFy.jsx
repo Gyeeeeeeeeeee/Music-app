@@ -5,32 +5,34 @@ const SUITS = {
     name: 'Classic Suit',
     primary: '#e62429',
     secondary: '#1d4ed8',
-    glow: 'rgba(230, 36, 41, 0.45)',
-    badge: 'PETER-616',
+    gradient: 'linear-gradient(180deg, rgba(230,36,41,0.42) 0%, rgba(29,78,216,0.18) 45%, #121212 100%)',
+    badge: 'EARTH-616',
   },
   miles: {
     name: 'Miles Morales',
     primary: '#ef4444',
     secondary: '#06b6d4',
-    glow: 'rgba(6, 182, 212, 0.45)',
+    gradient: 'linear-gradient(180deg, rgba(6,182,212,0.38) 0%, rgba(239,68,68,0.2) 45%, #121212 100%)',
     badge: 'EARTH-1610',
   },
   symbiote: {
-    name: 'Symbiote Suit',
+    name: 'Symbiote',
     primary: '#a855f7',
     secondary: '#e2e8f0',
-    glow: 'rgba(168, 85, 247, 0.45)',
-    badge: 'VENOM-CORE',
+    gradient: 'linear-gradient(180deg, rgba(168,85,247,0.4) 0%, rgba(39,39,42,0.3) 45%, #121212 100%)',
+    badge: 'SYMBIOTE-800',
   },
 };
 
 const INITIAL_TRACKS = [
-  { id: 1, title: 'Queens Midnight Swing', artist: 'Spidey Beats', genre: 'Synthwave', duration: 154, baseFreq: 196, color: '#e62429' },
-  { id: 2, title: 'Brooklyn Neon Pulse', artist: 'Miles Lab', genre: 'Electro', duration: 182, baseFreq: 220, color: '#06b6d4' },
-  { id: 3, title: 'Abyssal Tendril', artist: 'Symbiote Sound', genre: 'Dark Bass', duration: 168, baseFreq: 146.83, color: '#a855f7' },
-  { id: 4, title: 'Daily Bugle Rush', artist: 'Web-Head Studio', genre: 'Lo-Fi', duration: 141, baseFreq: 261.63, color: '#f59e0b' },
-  { id: 5, title: 'Skyline Web Zip', artist: 'Manhattan FM', genre: 'Synthwave', duration: 195, baseFreq: 246.94, color: '#3b82f6' },
-  { id: 6, title: 'Spider-Sense Echo', artist: 'Multiverse Mix', genre: 'Ambient', duration: 210, baseFreq: 174.61, color: '#10b981' },
+  { id: 1, title: 'Sunflower (Spider-Verse Edit)', artist: 'Post Malone, Swae Lee', album: 'Into the Spider-Verse', duration: 158, baseFreq: 196, cover: '🕷️' },
+  { id: 2, title: 'What’s Up Danger', artist: 'Blackway & Black Caviar', album: 'Into the Spider-Verse', duration: 222, baseFreq: 220, cover: '⚡' },
+  { id: 3, title: 'Am I Dreaming', artist: 'Metro Boomin, A$AP Rocky', album: 'Across the Spider-Verse', duration: 256, baseFreq: 174.61, cover: '🌀' },
+  { id: 4, title: 'Annihilate', artist: 'Metro Boomin, Swae Lee', album: 'Across the Spider-Verse', duration: 231, baseFreq: 146.83, cover: '🕸️' },
+  { id: 5, title: 'Calling', artist: 'Metro Boomin, NAV', album: 'Across the Spider-Verse', duration: 219, baseFreq: 246.94, cover: '🌃' },
+  { id: 6, title: 'Self Love', artist: 'Metro Boomin, Coi Leray', album: 'Across the Spider-Verse', duration: 189, baseFreq: 261.63, cover: '💜' },
+  { id: 7, title: 'Queens Midnight Swing', artist: 'Peter Parker Sessions', album: 'Daily Bugle Tapes', duration: 164, baseFreq: 293.66, cover: '🏙️' },
+  { id: 8, title: 'Venom Symbiote Surge', artist: 'Eddie Brock Mix', album: 'Black Suit OST', duration: 194, baseFreq: 130.81, cover: '🖤' },
 ];
 
 function formatTime(sec) {
@@ -47,25 +49,34 @@ export default function SpideyFy() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [search, setSearch] = useState('');
-  const [likedIds, setLikedIds] = useState([1, 2]);
-  const [showLikedOnly, setShowLikedOnly] = useState(false);
+  const [tab, setTab] = useState('all'); // 'all' | 'liked'
+  const [likedIds, setLikedIds] = useState([1, 2, 3]);
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
 
   const audioCtxRef = useRef(null);
   const oscRef = useRef(null);
   const gainRef = useRef(null);
   const audioElRef = useRef(null);
 
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const theme = SUITS[suit];
   const currentTrack = tracks.find((t) => t.id === currentId) || tracks[0];
 
-  const filteredTracks = tracks.filter((t) => {
+  const visibleTracks = tracks.filter((t) => {
     const q = search.toLowerCase();
-    const matchSearch =
+    const matchQ =
       t.title.toLowerCase().includes(q) ||
       t.artist.toLowerCase().includes(q) ||
-      t.genre.toLowerCase().includes(q);
-    const matchLiked = showLikedOnly ? likedIds.includes(t.id) : true;
-    return matchSearch && matchLiked;
+      t.album.toLowerCase().includes(q);
+    const matchTab = tab === 'liked' ? likedIds.includes(t.id) : true;
+    return matchQ && matchTab;
   });
 
   useEffect(() => {
@@ -87,38 +98,27 @@ export default function SpideyFy() {
 
   useEffect(() => {
     const hasCustomAudio = Boolean(currentTrack?.audioUrl);
-
     if (isPlaying && !hasCustomAudio) {
       try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!audioCtxRef.current) {
-          audioCtxRef.current = new AudioContext();
-        }
-        if (audioCtxRef.current.state === 'suspended') {
-          audioCtxRef.current.resume();
-        }
-
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!audioCtxRef.current) audioCtxRef.current = new AudioCtx();
+        if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
         stopSynth();
 
         const osc = audioCtxRef.current.createOscillator();
         const gain = audioCtxRef.current.createGain();
         osc.type = suit === 'symbiote' ? 'sawtooth' : 'triangle';
         osc.frequency.setValueAtTime(currentTrack.baseFreq || 220, audioCtxRef.current.currentTime);
-        gain.gain.setValueAtTime(0.03, audioCtxRef.current.currentTime);
-
+        gain.gain.setValueAtTime(0.025, audioCtxRef.current.currentTime);
         osc.connect(gain);
         gain.connect(audioCtxRef.current.destination);
         osc.start();
-
         oscRef.current = osc;
         gainRef.current = gain;
-      } catch {
-        // Aman jika browser memblokir audio sebelum interaksi
-      }
+      } catch {}
     } else {
       stopSynth();
     }
-
     return () => stopSynth();
   }, [isPlaying, currentId, suit]);
 
@@ -128,11 +128,8 @@ export default function SpideyFy() {
     if (currentTrack?.audioUrl) {
       el.src = currentTrack.audioUrl;
       el.currentTime = progress;
-      if (isPlaying) {
-        el.play().catch(() => {});
-      } else {
-        el.pause();
-      }
+      if (isPlaying) el.play().catch(() => {});
+      else el.pause();
     } else {
       el.pause();
       el.removeAttribute('src');
@@ -150,9 +147,7 @@ export default function SpideyFy() {
         gainRef.current.disconnect();
         gainRef.current = null;
       }
-    } catch {
-      // Abaikan error saat stop oscillator
-    }
+    } catch {}
   }
 
   function selectTrack(id, autoPlay = true) {
@@ -163,14 +158,14 @@ export default function SpideyFy() {
 
   function handleNext() {
     const idx = tracks.findIndex((t) => t.id === currentId);
-    const nextIdx = (idx + 1) % tracks.length;
-    selectTrack(tracks[nextIdx].id, isPlaying);
+    const next = tracks[(idx + 1) % tracks.length];
+    selectTrack(next.id, isPlaying);
   }
 
   function handlePrev() {
     const idx = tracks.findIndex((t) => t.id === currentId);
-    const prevIdx = (idx - 1 + tracks.length) % tracks.length;
-    selectTrack(tracks[prevIdx].id, isPlaying);
+    const prev = tracks[(idx - 1 + tracks.length) % tracks.length];
+    selectTrack(prev.id, isPlaying);
   }
 
   function toggleLike(id) {
@@ -187,10 +182,10 @@ export default function SpideyFy() {
       id: Date.now(),
       title: file.name.replace(/\.[^/.]+$/, ''),
       artist: 'Local MP3',
-      genre: 'Custom File',
+      album: 'Uploaded Tracks',
       duration: 180,
       baseFreq: 220,
-      color: theme.primary,
+      cover: '🎵',
       audioUrl: url,
     };
     setTracks((prev) => [newTrack, ...prev]);
@@ -199,21 +194,33 @@ export default function SpideyFy() {
     setIsPlaying(true);
   }
 
-  const pct = Math.min(100, Math.round((progress / (currentTrack?.duration || 1)) * 100));
+  function handleSeek(e) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const newSec = Math.floor(ratio * (currentTrack?.duration || 1));
+    setProgress(newSec);
+    if (audioElRef.current && audioElRef.current.src) {
+      audioElRef.current.currentTime = newSec;
+    }
+  }
+
+  const pct = Math.min(100, (progress / (currentTrack?.duration || 1)) * 100);
 
   return (
     <div
       style={{
         boxSizing: 'border-box',
-        width: '100%',
-        maxWidth: '100vw',
-        minHeight: '100dvh',
-        backgroundColor: '#09090b',
-        color: '#f4f4f5',
+        width: '100vw',
+        maxWidth: '100%',
+        height: '100dvh',
+        backgroundColor: '#000000',
+        color: '#ffffff',
         fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         display: 'flex',
         flexDirection: 'column',
-        overflowX: 'clip',
+        overflow: 'hidden',
+        padding: isMobile ? '0' : '8px',
+        gap: isMobile ? '0' : '8px',
       }}
     >
       <audio
@@ -229,443 +236,356 @@ export default function SpideyFy() {
         onEnded={handleNext}
       />
 
-      {/* Top Bar */}
-      <header
+      {/* BODY: SIDEBAR + MAIN VIEW */}
+      <div
         style={{
-          boxSizing: 'border-box',
-          width: '100%',
+          flex: 1,
+          minHeight: 0,
           display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '10px',
-          padding: '12px 16px',
-          borderBottom: '1px solid #27272a',
-          backgroundColor: '#111115',
+          gap: '8px',
+          overflow: 'hidden',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-          <span
+        {/* SIDEBAR (Desktop) */}
+        {!isMobile && (
+          <aside
             style={{
-              width: '11px',
-              height: '11px',
+              width: '260px',
               flexShrink: 0,
-              borderRadius: '999px',
-              backgroundColor: theme.primary,
-              boxShadow: `0 0 12px ${theme.primary}`,
-            }}
-          />
-          <strong style={{ fontSize: '18px', letterSpacing: '0.4px' }}>SpideyFy</strong>
-          <span
-            style={{
-              fontSize: '11px',
-              padding: '2px 8px',
-              borderRadius: '999px',
-              backgroundColor: '#18181b',
-              border: `1px solid ${theme.secondary}`,
-              color: theme.secondary,
-              whiteSpace: 'nowrap',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
             }}
           >
-            {theme.badge}
-          </span>
-        </div>
+            {/* Brand & Nav */}
+            <div
+              style={{
+                backgroundColor: '#121212',
+                borderRadius: '10px',
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    backgroundColor: theme.primary,
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontWeight: 900,
+                    fontSize: '16px',
+                  }}
+                >
+                  🕷️
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '17px', letterSpacing: '-0.3px' }}>
+                    SpideyFy
+                  </div>
+                  <div style={{ fontSize: '10px', color: theme.secondary, fontWeight: 700 }}>
+                    {theme.badge}
+                  </div>
+                </div>
+              </div>
 
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', maxWidth: '100%' }}>
-          {Object.entries(SUITS).map(([key, item]) => {
-            const active = suit === key;
-            return (
               <button
-                key={key}
                 type="button"
-                onClick={() => setSuit(key)}
+                onClick={() => setTab('all')}
                 style={{
-                  boxSizing: 'border-box',
-                  padding: '6px 12px',
+                  textAlign: 'left',
+                  background: 'transparent',
+                  border: 'none',
+                  color: tab === 'all' ? '#ffffff' : '#a7a7a7',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  padding: '4px 0',
+                }}
+              >
+                🏠 Home / Semua Lagu
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTab('liked')}
+                style={{
+                  textAlign: 'left',
+                  background: 'transparent',
+                  border: 'none',
+                  color: tab === 'liked' ? '#ffffff' : '#a7a7a7',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  padding: '4px 0',
+                }}
+              >
+                ❤️ Liked Songs ({likedIds.length})
+              </button>
+            </div>
+
+            {/* Library & Upload */}
+            <div
+              style={{
+                flex: 1,
+                backgroundColor: '#121212',
+                borderRadius: '10px',
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                overflowY: 'auto',
+              }}
+            >
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#a7a7a7' }}>
+                YOUR SPIDER-LIBRARY
+              </div>
+
+              <label
+                style={{
+                  display: 'block',
+                  textAlign: 'center',
+                  padding: '10px',
                   borderRadius: '999px',
-                  border: active ? `1px solid ${item.primary}` : '1px solid #27272a',
-                  backgroundColor: active ? item.primary : '#18181b',
+                  backgroundColor: '#242424',
                   color: '#ffffff',
-                  fontSize: '12px',
-                  fontWeight: 600,
+                  fontSize: '13px',
+                  fontWeight: 700,
                   cursor: 'pointer',
                 }}
               >
-                {item.name}
-              </button>
-            );
-          })}
-        </div>
-      </header>
+                + Tambah MP3 Lokal
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleUpload}
+                  style={{ display: 'none' }}
+                />
+              </label>
 
-      {/* Main Content */}
-      <main
-        style={{
-          boxSizing: 'border-box',
-          flex: 1,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
-          gap: '16px',
-          padding: '16px',
-          maxWidth: '1160px',
-          width: '100%',
-          margin: '0 auto',
-          alignItems: 'start',
-        }}
-      >
-        {/* Left Panel */}
-        <section
-          style={{
-            boxSizing: 'border-box',
-            width: '100%',
-            minWidth: 0,
-            backgroundColor: '#111115',
-            border: '1px solid #27272a',
-            borderRadius: '14px',
-            padding: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-          }}
-        >
-          <input
-            type="text"
-            placeholder="Cari judul, artis, atau genre..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{
-              boxSizing: 'border-box',
-              width: '100%',
-              padding: '10px 12px',
-              borderRadius: '8px',
-              border: '1px solid #27272a',
-              backgroundColor: '#09090b',
-              color: '#ffffff',
-              fontSize: '14px',
-              outline: 'none',
-            }}
-          />
-
-          <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-            <button
-              type="button"
-              onClick={() => setShowLikedOnly(false)}
-              style={{
-                boxSizing: 'border-box',
-                flex: 1,
-                minWidth: 0,
-                padding: '8px 10px',
-                borderRadius: '8px',
-                border: '1px solid #27272a',
-                backgroundColor: !showLikedOnly ? theme.secondary : '#18181b',
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Semua ({tracks.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowLikedOnly(true)}
-              style={{
-                boxSizing: 'border-box',
-                flex: 1,
-                minWidth: 0,
-                padding: '8px 10px',
-                borderRadius: '8px',
-                border: '1px solid #27272a',
-                backgroundColor: showLikedOnly ? theme.primary : '#18181b',
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Disukai ({likedIds.length})
-            </button>
-          </div>
-
-          <label
-            style={{
-              boxSizing: 'border-box',
-              width: '100%',
-              display: 'block',
-              textAlign: 'center',
-              padding: '10px 12px',
-              borderRadius: '8px',
-              border: `1px dashed ${theme.secondary}`,
-              color: '#e4e4e7',
-              fontSize: '13px',
-              cursor: 'pointer',
-              backgroundColor: '#0d0d11',
-            }}
-          >
-            + Upload MP3 Lokal
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={handleUpload}
-              style={{ display: 'none' }}
-            />
-          </label>
-        </section>
-
-        {/* Right Panel: Track List */}
-        <section
-          style={{
-            boxSizing: 'border-box',
-            width: '100%',
-            minWidth: 0,
-            backgroundColor: '#111115',
-            border: '1px solid #27272a',
-            borderRadius: '14px',
-            padding: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}
-        >
-          <h2 style={{ margin: '0 0 6px', fontSize: '16px', color: '#ffffff' }}>Daftar Lagu</h2>
-          {filteredTracks.length === 0 ? (
-            <p style={{ margin: 0, color: '#a1a1aa', fontSize: '14px' }}>
-              Tidak ada lagu yang cocok.
-            </p>
-          ) : (
-            filteredTracks.map((track, index) => {
-              const active = track.id === currentTrack?.id;
-              const isLiked = likedIds.includes(track.id);
-              return (
-                <div
-                  key={track.id}
-                  onClick={() => selectTrack(track.id, true)}
+              <div style={{ fontSize: '12px', color: '#71717a', marginTop: '4px' }}>
+                Pilih Suit Mode:
+              </div>
+              {Object.entries(SUITS).map(([key, item]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setSuit(key)}
                   style={{
-                    boxSizing: 'border-box',
-                    width: '100%',
-                    minWidth: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '10px',
+                    textAlign: 'left',
                     padding: '10px 12px',
-                    borderRadius: '10px',
+                    borderRadius: '8px',
+                    border: suit === key ? `1px solid ${item.primary}` : '1px solid transparent',
+                    backgroundColor: suit === key ? '#1f1f23' : '#18181b',
+                    color: '#ffffff',
+                    fontSize: '13px',
+                    fontWeight: 600,
                     cursor: 'pointer',
-                    backgroundColor: active ? '#1d1d24' : '#0d0d11',
-                    border: active ? `1px solid ${theme.primary}` : '1px solid #1f1f25',
                   }}
                 >
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div
-                      style={{
-                        fontWeight: 600,
-                        fontSize: '14px',
-                        color: active ? theme.primary : '#ffffff',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {index + 1}. {track.title}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '12px',
-                        color: '#a1a1aa',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {track.artist} • {track.genre}
-                    </div>
-                  </div>
+                  {item.name}
+                </button>
+              ))}
+            </div>
+          </aside>
+        )}
 
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleLike(track.id);
-                      }}
-                      style={{
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        color: isLiked ? theme.primary : '#71717a',
-                        fontSize: '16px',
-                        cursor: 'pointer',
-                        padding: '2px 4px',
-                      }}
-                      aria-label="Suka"
-                    >
-                      {isLiked ? '♥' : '♡'}
-                    </button>
-                    <span style={{ fontSize: '12px', color: '#a1a1aa' }}>
-                      {formatTime(track.duration)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </section>
-      </main>
-
-      {/* Bottom Player Bar */}
-      <footer
-        style={{
-          boxSizing: 'border-box',
-          width: '100%',
-          position: 'sticky',
-          bottom: 0,
-          backgroundColor: '#111115',
-          borderTop: '1px solid #27272a',
-          padding: '12px 16px',
-          boxShadow: `0 -6px 24px ${theme.glow}`,
-        }}
-      >
-        <div
+        {/* MAIN CONTENT AREA */}
+        <main
           style={{
-            boxSizing: 'border-box',
-            maxWidth: '1160px',
-            width: '100%',
-            margin: '0 auto',
+            flex: 1,
+            minWidth: 0,
+            backgroundColor: '#121212',
+            borderRadius: isMobile ? '0' : '10px',
             display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
+            flexDirection: 'column',
+            overflowY: 'auto',
+            backgroundImage: theme.gradient,
+            backgroundRepeat: 'no-repeat',
+            backgroundSize: '100% 340px',
           }}
         >
-          <div style={{ minWidth: 0, flex: '1 1 160px' }}>
-            <div
+          {/* Sticky Top Search & Suit Switcher */}
+          <div
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px',
+              padding: '14px 20px',
+              backgroundColor: 'rgba(18, 18, 18, 0.78)',
+              backdropFilter: 'blur(12px)',
+            }}
+          >
+            <input
+              type="text"
+              placeholder="Apa yang ingin kamu dengarkan?"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               style={{
-                fontWeight: 700,
-                fontSize: '14px',
+                boxSizing: 'border-box',
+                width: isMobile ? '100%' : '290px',
+                padding: '9px 14px',
+                borderRadius: '999px',
+                border: '1px solid #2a2a2a',
+                backgroundColor: '#242424',
                 color: '#ffffff',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
+                fontSize: '13px',
+                outline: 'none',
               }}
-            >
-              {currentTrack?.title}
-            </div>
-            <div style={{ fontSize: '12px', color: '#a1a1aa' }}>{currentTrack?.artist}</div>
+            />
+
+            {isMobile && (
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', width: '100%' }}>
+                {Object.entries(SUITS).map(([key, item]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSuit(key)}
+                    style={{
+                      padding: '5px 10px',
+                      borderRadius: '999px',
+                      border: 'none',
+                      backgroundColor: suit === key ? item.primary : '#242424',
+                      color: '#fff',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {item.name}
+                  </button>
+                ))}
+                <label
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: '999px',
+                    backgroundColor: '#242424',
+                    color: '#fff',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                  }}
+                >
+                  + MP3
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={handleUpload}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+              </div>
+            )}
           </div>
 
+          {/* Spotify Playlist Hero Banner */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: isMobile ? 'center' : 'flex-end',
+              gap: '20px',
+              padding: '16px 20px 20px',
+            }}
+          >
+            <div
+              style={{
+                width: isMobile ? '84px' : '150px',
+                height: isMobile ? '84px' : '150px',
+                flexShrink: 0,
+                borderRadius: '8px',
+                background: `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})`,
+                boxShadow: '0 12px 32px rgba(0,0,0,0.55)',
+                display: 'grid',
+                placeItems: 'center',
+                fontSize: isMobile ? '40px' : '64px',
+              }}
+            >
+              🕷️
+            </div>
+
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '1px' }}>
+                PLAYLIST • {theme.badge}
+              </div>
+              <h1
+                style={{
+                  margin: '4px 0 8px',
+                  fontSize: isMobile ? '24px' : '42px',
+                  fontWeight: 900,
+                  lineHeight: 1.1,
+                }}
+              >
+                Spider-Verse Mix
+              </h1>
+              <div style={{ fontSize: '13px', color: '#d4d4d8' }}>
+                SpideyFy • {visibleTracks.length} lagu • {theme.name}
+              </div>
+            </div>
+          </div>
+
+          {/* Action Bar (Big Play Button + Filter Tabs) */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              flexShrink: 0,
+              gap: '14px',
+              padding: '0 20px 16px',
             }}
           >
             <button
               type="button"
-              onClick={handlePrev}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: '1px solid #27272a',
-                backgroundColor: '#18181b',
-                color: '#ffffff',
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
-            >
-              Prev
-            </button>
-            <button
-              type="button"
               onClick={() => setIsPlaying((p) => !p)}
               style={{
-                padding: '8px 18px',
-                borderRadius: '999px',
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
                 border: 'none',
                 backgroundColor: theme.primary,
                 color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: 700,
+                fontSize: '18px',
+                fontWeight: 900,
                 cursor: 'pointer',
+                boxShadow: '0 6px 18px rgba(0,0,0,0.4)',
               }}
             >
-              {isPlaying ? 'Pause' : 'Play'}
+              {isPlaying ? '❚❚' : '▶'}
             </button>
+
             <button
               type="button"
-              onClick={handleNext}
+              onClick={() => setTab('all')}
               style={{
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: '1px solid #27272a',
-                backgroundColor: '#18181b',
-                color: '#ffffff',
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
-            >
-              Next
-            </button>
-          </div>
-
-          <div style={{ minWidth: '150px', flex: '1 1 220px', maxWidth: '300px' }}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: '11px',
-                color: '#a1a1aa',
-                marginBottom: '4px',
-              }}
-            >
-              <span>{formatTime(progress)}</span>
-              <span>{formatTime(currentTrack?.duration)}</span>
-            </div>
-            <div
-              style={{
-                width: '100%',
-                height: '6px',
+                padding: '7px 14px',
                 borderRadius: '999px',
-                backgroundColor: '#272>
-
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={() => setShowLikedOnly(false)}
-              style={{
-                flex: 1,
-                padding: '8px',
-                borderRadius: '8px',
-                border: '1px solid #27272a',
-                background: !showLikedOnly ? theme.secondary : '#18181b',
-                color: '#fff',
-                fontSize: '13px',
-                fontWeight: 600,
+                border: 'none',
+                backgroundColor: tab === 'all' ? '#ffffff' : '#242424',
+                color: tab === 'all' ? '#000000' : '#ffffff',
+                fontSize: '12px',
+                fontWeight: 700,
                 cursor: 'pointer',
               }}
             >
               Semua ({tracks.length})
             </button>
+
             <button
               type="button"
-              onClick={() => setShowLikedOnly(true)}
+              onClick={() => setTab('liked')}
               style={{
-                flex: 1,
-                padding: '8px',
-                borderRadius: '8px',
-                border: '1px solid #27272a',
-                background: showLikedOnly ? theme.primary : '#18181b',
-                color: '#fff',
-                fontSize: '13px',
-                fontWeight: 600,
+                padding: '7px 14px',
+                borderRadius: '999px',
+                border: 'none',
+                backgroundColor: tab === 'liked' ? '#ffffff' : '#242424',
+                color: tab === 'liked' ? '#000000' : '#ffffff',
+                fontSize: '12px',
+                fontWeight: 700,
                 cursor: 'pointer',
               }}
             >
@@ -673,215 +593,12 @@ export default function SpideyFy() {
             </button>
           </div>
 
-          <label
-            style={{
-              display: 'block',
-              textAlign: 'center',
-              padding: '10px',
-              borderRadius: '8px',
-              border: `1px dashed ${theme.secondary}`,
-              color: '#e4e4e7',
-              fontSize: '13px',
-              cursor: 'pointer',
-              background: '#0d0d11',
-            }}
-          >
-            + Upload MP3 Lokal
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={handleUpload}
-              style={{ display: 'none' }}
-            />
-          </label>
-        </section>
-
-        <section
-          style={{
-            background: '#111115',
-            border: '1px solid #27272a',
-            borderRadius: '14px',
-            padding: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}
-        >
-          <h2 style={{ margin: '0 0 8px', fontSize: '16px' }}>Daftar Lagu</h2>
-          {filteredTracks.length === 0 ? (
-            <p style={{ color: '#a1a1aa', fontSize: '14px' }}>Tidak ada lagu yang cocok.</p>
-          ) : (
-            filteredTracks.map((track, index) => {
+          {/* Spotify Track Table */}
+          <div style={{ padding: '0 12px 24px' }}>
+            {visibleTracks.map((track, idx) => {
               const active = track.id === currentTrack?.id;
-              const isLiked = likedIds.includes(track.id);
+              const liked = likedIds.includes(track.id);
               return (
                 <div
                   key={track.id}
-                  onClick={() => selectTrack(track.id, true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    padding: '10px 12px',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    background: active ? '#1d1d24' : '#0d0d11',
-                    border: active ? `1px solid ${theme.primary}` : '1px solid #1f1f25',
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontWeight: 600,
-                        fontSize: '14px',
-                        color: active ? theme.primary : '#fff',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {index + 1}. {track.title}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#a1a1aa' }}>
-                      {track.artist} • {track.genre}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleLike(track.id);
-                      }}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: isLiked ? theme.primary : '#71717a',
-                        fontSize: '16px',
-                        cursor: 'pointer',
-                      }}
-                      aria-label="Suka"
-                    >
-                      {isLiked ? '♥' : '♡'}
-                    </button>
-                    <span style={{ fontSize: '12px', color: '#a1a1aa' }}>
-                      {formatTime(track.duration)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </section>
-      </main>
-
-      <footer
-        style={{
-          position: 'sticky',
-          bottom: 0,
-          background: '#111115',
-          borderTop: '1px solid #27272a',
-          padding: '12px 20px',
-          boxShadow: `0 -6px 24px ${theme.glow}`,
-        }}
-      >
-        <div
-          style={{
-            maxWidth: '1100px',
-            margin: '0 auto',
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-          }}
-        >
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '14px' }}>{currentTrack?.title}</div>
-            <div style={{ fontSize: '12px', color: '#a1a1aa' }}>{currentTrack?.artist}</div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              type="button"
-              onClick={handlePrev}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: '1px solid #27272a',
-                background: '#18181b',
-                color: '#fff',
-                cursor: 'pointer',
-              }}
-            >
-              Prev
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsPlaying((p) => !p)}
-              style={{
-                padding: '8px 18px',
-                borderRadius: '999px',
-                border: 'none',
-                background: theme.primary,
-                color: '#fff',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              {isPlaying ? 'Pause' : 'Play'}
-            </button>
-            <button
-              type="button"
-              onClick={handleNext}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: '1px solid #27272a',
-                background: '#18181b',
-                color: '#fff',
-                cursor: 'pointer',
-              }}
-            >
-              Next
-            </button>
-          </div>
-
-          <div style={{ minWidth: '160px', flex: '0 1 240px' }}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: '11px',
-                color: '#a1a1aa',
-                marginBottom: '4px',
-              }}
-            >
-              <span>{formatTime(progress)}</span>
-              <span>{formatTime(currentTrack?.duration)}</span>
-            </div>
-            <div
-              style={{
-                height: '6px',
-                borderRadius: '999px',
-                background: '#27272a',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  width: `${pct}%`,
-                  height: '100%',
-                  background: theme.secondary,
-                  transition: 'width 0.25s linear',
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
-}
+   
