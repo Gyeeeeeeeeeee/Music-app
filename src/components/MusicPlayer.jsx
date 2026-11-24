@@ -143,7 +143,7 @@ export default function MusicPlayer() {
             onChange={changeProgress}
           />
           <div className="flex justify-between text-[10px] text-zinc-500 mt-1 uppercase tracking-widest">
-            <span>{formatTime(audioRef.current?.currentTime)}</span>
+            <span>{formatTime(audioRef.current ? audioRef.current.currentTime : 0)}</span>
             <span>{formatTime(duration)}</span>
           </div>
         </div>
