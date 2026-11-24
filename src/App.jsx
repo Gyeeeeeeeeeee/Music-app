@@ -1,11 +1,7 @@
-import MusicPlayer from './components/MusicPlayer'
+import SpideyFy from './SpideyFy'
 
 function App() {
-  return (
-    <div className="App">
-      <MusicPlayer />
-    </div>
-  )
+  return <SpideyFy />
 }
 
 export default App
